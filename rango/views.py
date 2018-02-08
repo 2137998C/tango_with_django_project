@@ -1,10 +1,11 @@
 from django.shortcuts import render
-from django.http import HttpResponse
 from rango.models import Category, Page
 from rango.forms import UserProfileForm, UserForm, PageForm, CategoryForm
-from django.contrib.auth import authenticate, login
+from django.contrib.auth import authenticate, login, logout
 from django.http import HttpResponseRedirect, HttpResponse
 from django.core.urlresolvers import reverse
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
 
 def index(request):
         category_list = Category.objects.order_by('-likes')[:5]
@@ -29,6 +30,7 @@ def show_category(request, category_name_slug):
                 context_dict['pages'] = None
         return render(request, 'rango/category.html', context_dict)
 
+@login_required
 def add_category(request):
         form = CategoryForm()
         if request.method == 'POST':
@@ -40,6 +42,7 @@ def add_category(request):
                         print(form.errors)
         return render(request, 'rango/add_category.html', {'form': form})
 
+@login_required
 def add_page(request, category_name_slug):
         try:
                 category = Category.objects.get(slug=category_name_slug)
@@ -76,8 +79,8 @@ def register(request):
                                 profile.picture = request.FILES['picture']
                                 profile.save()
                                 registered = True
-                else:
-                        print(user_form.errors, profile_form.errors)
+                        else:
+                                print(user_form.errors, profile_form.errors)
         else:
                 user_form = UserForm()
                 profile_form = UserProfileForm()
@@ -99,8 +102,21 @@ def user_login(request):
                                 return HttpResponseRedirect(reverse('index'))
                         else:
                                 return HttpResponse("Your Rango account is disabled.")
+                elif User.objects.filter(username=username).exists():
+                        print("Invalid login details: {0}, {1}".format(username, password))
+                        return HttpResponse("Incorrect password.")
                 else:
                         print("Invalid login details: {0}, {1}".format(username, password))
-                        return HttpResponse("Invalid login details supplied.")
+                        return HttpResponse("No user with that username.")
+                        
         else:
-                return(request, 'rango/login.html', {})
+                return render(request, 'rango/login.html', {})
+
+@login_required
+def restricted(request):
+        return render(request, 'rango/restricted.html', {})
+
+@login_required
+def user_logout(request):
+        logout(request)
+        return HttpResponseRedirect(reverse('index'))
